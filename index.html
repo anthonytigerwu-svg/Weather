@@ -209,13 +209,21 @@ async function load() {
   if (DEMO) { demo(); render(); return; }
   if (!AIO_USER) { banner("<b>Almost there.</b> Open index.html, put your Adafruit IO username in <code>AIO_USER</code>, and set each feed to Public. Add <code>?demo</code> to the address to preview the layout with made-up numbers."); return; }
   try {
-    const lasts = await Promise.all(FEEDS.map(k => getJSON(API() + k + "/data/last").catch(() => null)));
+    // newest value of each feed (".../data/last" answers 404 to public reads, so ask for one row instead)
+    const lasts = await Promise.all(FEEDS.map(k => getJSON(API() + k + "/data?limit=1").then(a => a[0]).catch(() => null)));
     FEEDS.forEach((k, i) => { if (lasts[i]) last[k] = { v: parseFloat(lasts[i].value), t: new Date(lasts[i].created_at) }; });
     const times = Object.values(last).map(x => x.t.getTime());
     lastTime = times.length ? new Date(Math.max(...times)) : null;
     const charts = ["temperature", "wind-speed", "humidity", "pressure"];
     const res = await Promise.all(charts.map(k => getJSON(API() + k + "/data/chart?hours=24&resolution=10").catch(() => null)));
     charts.forEach((k, i) => { if (res[i] && res[i].data) series[k] = res[i].data.map(r => [new Date(r[0]), parseFloat(r[1])]).filter(r => !isNaN(r[1])); });
+    // the 10-minute averages take a while to appear for a brand-new feed: until then, chart the raw readings
+    const since = new Date(Date.now() - 24 * 3600e3).toISOString();
+    await Promise.all(charts.map(async k => {
+      if (series[k] && series[k].length >= 2) return;
+      const raw = await getJSON(API() + k + "/data?limit=1000&start_time=" + since).catch(() => null);
+      if (raw && raw.length) series[k] = raw.map(r => [new Date(r.created_at), parseFloat(r.value)]).filter(r => !isNaN(r[1])).reverse();
+    }));
     if (!Object.keys(last).length) banner("<b>No data reached this page.</b> Check that the feeds are set to <b>Public</b> in Adafruit IO and that the username here is right. If they are, open the browser console: a CORS error there means Adafruit IO is refusing browser requests, and the built-in Adafruit IO dashboard is the fallback.");
     else banner("");
   } catch (e) { banner("<b>Couldn't reach Adafruit IO.</b> Retrying every minute."); }
