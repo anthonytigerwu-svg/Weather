@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weather Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --bg: #F2F5F6; --surface: #FFFFFF; --surface-2: #E8EEF0;
+  --ink: #12202A; --ink-2: #4A5A64; --ink-3: #7B8A93; --rule: #D3DDE1;
+  --accent: #0E6F8C; --accent-soft: #D8EBF1;
+  --good: #2E7D4F; --warn: #B7791F; --serious: #C2532D; --critical: #A3263B; --extreme: #6B3FA0;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1418; --surface: #151F25; --surface-2: #1C2830;
+    --ink: #E4ECEF; --ink-2: #A3B2BA; --ink-3: #72838C; --rule: #2A3840;
+    --accent: #4FB3D1; --accent-soft: #143440;
+    --good: #5FBF85; --warn: #E0A84A; --serious: #E8805C; --critical: #E2667C; --extreme: #A98BE0;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f-display); -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+h1 { font-size: clamp(26px, 5vw, 40px); margin: 0; letter-spacing: -0.02em; font-weight: 700; }
+.sub { font-family: var(--f-mono); font-size: 12px; color: var(--ink-3); letter-spacing: 0.06em; text-transform: uppercase; margin-top: 6px; }
+.status { display: flex; align-items: center; gap: 8px; font-family: var(--f-mono); font-size: 13px; color: var(--ink-2); }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.dot.live { background: var(--good); box-shadow: 0 0 0 4px color-mix(in srgb, var(--good) 22%, transparent); }
+.dot.stale { background: var(--warn); }
+.dot.down { background: var(--critical); }
+.units { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; overflow: hidden; margin-left: 10px; }
+.units button { font: 500 12px var(--f-mono); border: 0; background: transparent; color: var(--ink-2); padding: 5px 10px; cursor: pointer; }
+.units button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.banner { display: none; background: var(--surface); border: 1px solid var(--rule); border-left: 4px solid var(--warn); padding: 14px 16px; border-radius: 6px; margin-bottom: 18px; font-size: 15px; line-height: 1.5; color: var(--ink-2); }
+.banner.show { display: block; }
+.banner b { color: var(--ink); }
+.demo-tag { display: none; font: 600 11px var(--f-mono); letter-spacing: .1em; color: #fff; background: var(--serious); padding: 3px 8px; border-radius: 3px; }
+.demo .demo-tag { display: inline-block; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+.card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; min-width: 0; }
+.label { font: 500 11px var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 10px; }
+.big { font-size: clamp(56px, 11vw, 96px); font-weight: 600; letter-spacing: -0.04em; line-height: 0.95; font-variant-numeric: tabular-nums; }
+.big small { font-size: 0.38em; font-weight: 500; color: var(--ink-2); letter-spacing: 0; margin-left: 4px; }
+.facts { display: flex; gap: 22px; flex-wrap: wrap; margin-top: 14px; color: var(--ink-2); font-size: 15px; }
+.facts b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.wind { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: center; }
+.rose { width: 120px; height: 120px; }
+.rose .ring { fill: none; stroke: var(--rule); stroke-width: 1.5; }
+.rose .tick { stroke: var(--ink-3); stroke-width: 1; }
+.rose text { font: 500 10px var(--f-mono); fill: var(--ink-3); text-anchor: middle; dominant-baseline: middle; }
+.rose .arrow { fill: var(--accent); }
+.mid { font-size: 40px; font-weight: 600; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.mid small { font-size: 0.42em; color: var(--ink-2); font-weight: 500; margin-left: 3px; }
+.line2 { color: var(--ink-2); font-size: 14px; margin-top: 6px; }
+.line2 b { color: var(--ink); font-weight: 600; }
+
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 26px; }
+.uv-chip { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--f-mono); padding: 3px 8px; border-radius: 999px; margin-top: 8px; color: #fff; }
+.uv-chip svg { width: 12px; height: 12px; }
+
+h2 { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.chart-card { padding: 16px 16px 10px; }
+.chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.chart-head .now { font: 500 13px var(--f-mono); color: var(--ink-2); }
+svg.chart { width: 100%; height: auto; display: block; overflow: visible; }
+svg.chart .grid { stroke: var(--rule); stroke-width: 1; }
+svg.chart .axis { font: 400 10.5px var(--f-mono); fill: var(--ink-3); }
+svg.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+svg.chart .area { fill: var(--accent-soft); opacity: 0.7; }
+svg.chart .cross { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 3 3; }
+svg.chart .pt { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--bg); font: 500 12px var(--f-mono); padding: 6px 9px; border-radius: 5px; opacity: 0; transition: opacity .1s; white-space: nowrap; z-index: 10; }
+.empty { font: 13px var(--f-mono); color: var(--ink-3); padding: 50px 0; text-align: center; }
+footer { margin-top: 30px; font: 12px var(--f-mono); color: var(--ink-3); line-height: 1.7; }
+details { margin-top: 10px; }
+details table { border-collapse: collapse; font: 12px var(--f-mono); margin-top: 8px; }
+details td, details th { padding: 3px 10px 3px 0; text-align: left; border-bottom: 1px solid var(--rule); }
+
+@media (max-width: 760px) {
+  .hero { grid-template-columns: 1fr; }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .charts { grid-template-columns: 1fr; }
+  .tiles .mid { font-size: 30px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="stationName">Weather Station</h1>
+      <div class="sub">Home-built · ESP32-S3 · updated every minute <span class="demo-tag">Demo data</span></div>
+    </div>
+    <div class="status">
+      <span class="dot" id="dot"></span><span id="updated">Connecting…</span>
+      <span class="units" role="group" aria-label="Units">
+        <button id="uUS" aria-pressed="true">°F · mph</button><button id="uSI" aria-pressed="false">°C · m/s</button>
+      </span>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <section class="hero">
+    <div class="card">
+      <div class="label">Temperature</div>
+      <div class="big" id="temp">--<small id="tempU">°F</small></div>
+      <div class="facts">
+        <span>Humidity <b id="hum">--</b></span>
+        <span>Dew point <b id="dew">--</b></span>
+        <span>24 h range <b id="trange">--</b></span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="label">Wind</div>
+      <div class="wind">
+        <svg class="rose" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring" cx="60" cy="60" r="52"/>
+          <g id="ticks"></g>
+          <text x="60" y="17">N</text><text x="103" y="60">E</text><text x="60" y="103">S</text><text x="17" y="60">W</text>
+          <path class="arrow" id="arrow" d="M60 22 L68 48 L60 43 L52 48 Z" transform="rotate(0)"/>
+        </svg>
+        <div>
+          <div class="mid" id="wspd">--<small id="wU">mph</small></div>
+          <div class="line2">from <b id="wdir">--</b></div>
+          <div class="line2">gust <b id="wgust">--</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="tiles">
+    <div class="card"><div class="label">Pressure</div><div class="mid" id="pres">--<small>hPa</small></div><div class="line2" id="ptrend"></div></div>
+    <div class="card"><div class="label">Rain today</div><div class="mid" id="rain">--<small id="rU">in</small></div><div class="line2">resets at midnight</div></div>
+    <div class="card"><div class="label">UV index</div><div class="mid" id="uv">--</div><div id="uvchip"></div></div>
+    <div class="card"><div class="label">Light</div><div class="mid" id="lux">--<small>lux</small></div><div class="line2" id="luxword"></div></div>
+  </section>
+
+  <h2>Last 24 hours</h2>
+  <section class="charts">
+    <div class="card chart-card"><div class="chart-head"><div class="label">Temperature</div><div class="now" id="c-temp-now"></div></div><div id="c-temp"></div></div>
+    <div class="card chart-card"><div class="chart-head"><div class="label">Wind speed</div><div class="now" id="c-wind-now"></div></div><div id="c-wind"></div></div>
+    <div class="card chart-card"><div class="chart-head"><div class="label">Humidity</div><div class="now" id="c-hum-now"></div></div><div id="c-hum"></div></div>
+    <div class="card chart-card"><div class="chart-head"><div class="label">Pressure</div><div class="now" id="c-pres-now"></div></div><div id="c-pres"></div></div>
+  </section>
+
+  <footer>
+    Data: a home-built station (BME280, LTR390, AS5600 vane, reed-switch anemometer and tipping-bucket rain gauge) posting to Adafruit IO once a minute.
+    <details><summary>Latest values as a table</summary><table id="tbl"></table></details>
+  </footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+// ===================== settings: change these two =====================
+const AIO_USER = "";               // your Adafruit IO username (the feeds must be set to Public)
+const STATION_NAME = "Weather Station";
+// =======================================================================
+const API = u => `https://io.adafruit.com/api/v2/${encodeURIComponent(AIO_USER)}/feeds/`;
+const FEEDS = ["temperature", "humidity", "pressure", "wind-speed", "wind-gust", "wind-dir", "rain-today", "uv-index", "lux"];
+const DEMO = new URLSearchParams(location.search).has("demo");
+const $ = id => document.getElementById(id);
+document.title = STATION_NAME; $("stationName").textContent = STATION_NAME;
+if (DEMO) document.body.classList.add("demo");
+
+let US = true;
+try { US = localStorage.getItem("units") !== "si"; } catch (e) {}
+const setUnits = us => {
+  US = us;
+  $("uUS").setAttribute("aria-pressed", us); $("uSI").setAttribute("aria-pressed", !us);
+  try { localStorage.setItem("units", us ? "us" : "si"); } catch (e) {}
+  render();
+};
+$("uUS").onclick = () => setUnits(true); $("uSI").onclick = () => setUnits(false);
+
+const fT = c => US ? c * 9 / 5 + 32 : c;
+const fW = ms => US ? ms * 2.23694 : ms;
+const fR = mm => US ? mm / 25.4 : mm;
+const tU = () => US ? "°F" : "°C", wU = () => US ? "mph" : "m/s", rU = () => US ? "in" : "mm";
+const COMPASS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
+const compass = d => COMPASS[Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
+const fmt = (v, n = 0) => (v == null || isNaN(v)) ? "--" : v.toFixed(n);
+function dewPoint(t, rh) { const a = 17.62, b = 243.12, g = Math.log(rh / 100) + a * t / (b + t); return b * g / (a - g); }
+function uvCat(u) {
+  if (u < 3) return ["Low", "var(--good)"]; if (u < 6) return ["Moderate", "var(--warn)"];
+  if (u < 8) return ["High", "var(--serious)"]; if (u < 11) return ["Very high", "var(--critical)"]; return ["Extreme", "var(--extreme)"];
+}
+function luxWord(l) { return l < 10 ? "dark" : l < 1000 ? "dim / overcast" : l < 10000 ? "daylight, cloudy" : l < 50000 ? "bright daylight" : "full sun"; }
+
+// compass ticks
+(() => { let s = ""; for (let i = 0; i < 16; i++) { const a = i * 22.5 * Math.PI / 180, r1 = i % 4 ? 48 : 45;
+  s += `<line class="tick" x1="${60 + r1 * Math.sin(a)}" y1="${60 - r1 * Math.cos(a)}" x2="${60 + 52 * Math.sin(a)}" y2="${60 - 52 * Math.cos(a)}"/>`; }
+  $("ticks").innerHTML = s; })();
+
+let last = {}, series = {}, lastTime = null;
+
+async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(r.status); return r.json(); }
+async function load() {
+  if (DEMO) { demo(); render(); return; }
+  if (!AIO_USER) { banner("<b>Almost there.</b> Open index.html, put your Adafruit IO username in <code>AIO_USER</code>, and set each feed to Public. Add <code>?demo</code> to the address to preview the layout with made-up numbers."); return; }
+  try {
+    const lasts = await Promise.all(FEEDS.map(k => getJSON(API() + k + "/data/last").catch(() => null)));
+    FEEDS.forEach((k, i) => { if (lasts[i]) last[k] = { v: parseFloat(lasts[i].value), t: new Date(lasts[i].created_at) }; });
+    const times = Object.values(last).map(x => x.t.getTime());
+    lastTime = times.length ? new Date(Math.max(...times)) : null;
+    const charts = ["temperature", "wind-speed", "humidity", "pressure"];
+    const res = await Promise.all(charts.map(k => getJSON(API() + k + "/data/chart?hours=24&resolution=10").catch(() => null)));
+    charts.forEach((k, i) => { if (res[i] && res[i].data) series[k] = res[i].data.map(r => [new Date(r[0]), parseFloat(r[1])]).filter(r => !isNaN(r[1])); });
+    if (!Object.keys(last).length) banner("<b>No data reached this page.</b> Check that the feeds are set to <b>Public</b> in Adafruit IO and that the username here is right. If they are, open the browser console: a CORS error there means Adafruit IO is refusing browser requests, and the built-in Adafruit IO dashboard is the fallback.");
+    else banner("");
+  } catch (e) { banner("<b>Couldn't reach Adafruit IO.</b> Retrying every minute."); }
+  render();
+}
+function banner(html) { const b = $("banner"); b.innerHTML = html; b.classList.toggle("show", !!html); }
+
+function render() {
+  const g = k => last[k] ? last[k].v : NaN;
+  const t = g("temperature"), h = g("humidity");
+  $("temp").innerHTML = `${fmt(fT(t), 1)}<small>${tU()}</small>`;
+  $("hum").textContent = isNaN(h) ? "--" : fmt(h) + "%";
+  $("dew").textContent = (isNaN(t) || isNaN(h)) ? "--" : fmt(fT(dewPoint(t, h)), 1) + tU();
+  const ts = series.temperature || [];
+  $("trange").textContent = ts.length ? `${fmt(fT(Math.min(...ts.map(r => r[1]))), 0)} – ${fmt(fT(Math.max(...ts.map(r => r[1]))), 0)}${tU()}` : "--";
+  const ws = g("wind-speed"), wg = g("wind-gust"), wd = g("wind-dir");
+  $("wspd").innerHTML = `${fmt(fW(ws), 1)}<small>${wU()}</small>`;
+  $("wgust").textContent = isNaN(wg) ? "--" : `${fmt(fW(wg), 1)} ${wU()}`;
+  $("wdir").textContent = isNaN(wd) ? "--" : `${compass(wd)} (${fmt(wd)}°)`;
+  $("arrow").setAttribute("transform", `rotate(${isNaN(wd) ? 0 : (wd + 180) % 360} 60 60)`);   // arrow shows where the wind blows TO
+  const p = g("pressure");
+  $("pres").innerHTML = `${fmt(p, 1)}<small>hPa</small>`;
+  const ps = series.pressure || [];
+  if (ps.length > 18) { const d = ps[ps.length - 1][1] - ps[ps.length - 19][1];
+    $("ptrend").textContent = Math.abs(d) < 1 ? "steady over 3 h" : (d > 0 ? `rising ${fmt(d, 1)} in 3 h` : `falling ${fmt(-d, 1)} in 3 h`); }
+  const r = g("rain-today");
+  $("rain").innerHTML = `${fmt(fR(r), US ? 2 : 1)}<small>${rU()}</small>`;
+  const uv = g("uv-index");
+  $("uv").textContent = fmt(uv, 1);
+  if (!isNaN(uv)) { const [w, c] = uvCat(uv);
+    $("uvchip").innerHTML = `<span class="uv-chip" style="background:${c}"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="3" fill="#fff"/></svg>${w}</span>`; }
+  const lx = g("lux");
+  $("lux").innerHTML = `${isNaN(lx) ? "--" : Math.round(lx).toLocaleString()}<small>lux</small>`;
+  $("luxword").textContent = isNaN(lx) ? "" : luxWord(lx);
+  // status
+  const dot = $("dot");
+  if (lastTime) { const mins = (Date.now() - lastTime) / 60000;
+    dot.className = "dot " + (mins < 5 ? "live" : mins < 30 ? "stale" : "down");
+    $("updated").textContent = mins < 1.5 ? "Live · just now" : mins < 60 ? `Last reading ${Math.round(mins)} min ago` : `Last reading ${lastTime.toLocaleString()}`; }
+  // charts
+  chart("c-temp", series.temperature, fT, tU(), 1);
+  chart("c-wind", series["wind-speed"], fW, wU(), 1);
+  chart("c-hum", series.humidity, v => v, "%", 0);
+  chart("c-pres", series.pressure, v => v, "hPa", 1);
+  // table
+  $("tbl").innerHTML = "<tr><th>Feed</th><th>Value</th><th>Time</th></tr>" +
+    FEEDS.map(k => `<tr><td>${k}</td><td>${last[k] ? last[k].v : "--"}</td><td>${last[k] ? last[k].t.toLocaleTimeString() : ""}</td></tr>`).join("");
+}
+
+const tip = $("tip");
+function chart(id, data, conv, unit, dec) {
+  const el = $(id);
+  $(id + "-now").textContent = data && data.length ? `now ${fmt(conv(data[data.length - 1][1]), dec)} ${unit}` : "";
+  if (!data || data.length < 2) { el.innerHTML = `<div class="empty">Waiting for data</div>`; return; }
+  const W = 480, H = 170, L = 38, R = 8, T = 10, B = 22;
+  const xs = data.map(r => r[0].getTime()), ys = data.map(r => conv(r[1]));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys); const pad = (y1 - y0) * 0.12 || 1; y0 -= pad; y1 += pad;
+  if (id === "c-wind") y0 = 0;
+  const X = t => L + (t - x0) / (x1 - x0 || 1) * (W - L - R), Y = v => T + (1 - (v - y0) / (y1 - y0)) * (H - T - B);
+  const step = niceStep((y1 - y0) / 4); let grid = "";
+  for (let v = Math.ceil(y0 / step) * step; v <= y1; v += step)
+    grid += `<line class="grid" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text class="axis" x="${L - 6}" y="${Y(v) + 3.5}" text-anchor="end">${+v.toFixed(2)}</text>`;
+  let xt = ""; const first = new Date(x0); first.setMinutes(0, 0, 0);
+  for (let t = first.getTime() + 3600e3; t < x1; t += 3600e3) { const d = new Date(t); if (d.getHours() % 6) continue;
+    xt += `<text class="axis" x="${X(t)}" y="${H - 5}" text-anchor="middle">${d.toLocaleTimeString([], { hour: "numeric" })}</text>`; }
+  const pts = data.map((r, i) => `${X(xs[i]).toFixed(1)},${Y(ys[i]).toFixed(1)}`);
+  el.innerHTML = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${id.slice(2)} over the last 24 hours">
+    ${grid}${xt}<path class="area" d="M${pts[0]} L${pts.join(" L")} L${X(x1)},${Y(y0)} L${X(x0)},${Y(y0)} Z"/>
+    <path class="line" d="M${pts.join(" L")}" vector-effect="non-scaling-stroke"/>
+    <line class="cross" y1="${T}" y2="${H - B}" style="display:none"/><circle class="pt" r="4" style="display:none"/>
+    <rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent"/></svg>`;
+  const svg = el.querySelector("svg"), cross = svg.querySelector(".cross"), pt = svg.querySelector(".pt");
+  svg.onpointermove = e => {
+    const bb = svg.getBoundingClientRect(), px = (e.clientX - bb.left) / bb.width * W;
+    let i = 0, best = Infinity; xs.forEach((t, j) => { const d = Math.abs(X(t) - px); if (d < best) { best = d; i = j; } });
+    cross.setAttribute("x1", X(xs[i])); cross.setAttribute("x2", X(xs[i])); cross.style.display = "";
+    pt.setAttribute("cx", X(xs[i])); pt.setAttribute("cy", Y(ys[i])); pt.style.display = "";
+    tip.textContent = `${new Date(xs[i]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}  ·  ${fmt(ys[i], dec)} ${unit}`;
+    tip.style.left = Math.min(e.clientX + 12, innerWidth - 170) + "px"; tip.style.top = (e.clientY - 34) + "px"; tip.style.opacity = 1;
+  };
+  svg.onpointerleave = () => { cross.style.display = pt.style.display = "none"; tip.style.opacity = 0; };
+}
+function niceStep(s) { const p = Math.pow(10, Math.floor(Math.log10(s))), f = s / p; return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p; }
+
+function demo() {   // made-up numbers, only with ?demo in the address, so the layout can be previewed
+  const now = Date.now(), mk = (fn) => Array.from({ length: 144 }, (_, i) => { const t = now - (143 - i) * 600e3, h = new Date(t).getHours() + new Date(t).getMinutes() / 60; return [new Date(t), fn(h, i)]; });
+  series.temperature = mk(h => 16 + 7 * Math.sin((h - 9) / 24 * 2 * Math.PI));
+  series["wind-speed"] = mk((h, i) => Math.max(0, 1.5 + 2.5 * Math.sin((h - 11) / 24 * 2 * Math.PI) + 0.6 * Math.sin(i * 1.7)));
+  series.humidity = mk(h => 62 - 20 * Math.sin((h - 9) / 24 * 2 * Math.PI));
+  series.pressure = mk((h, i) => 1015 - i * 0.012);
+  const L = k => series[k][series[k].length - 1][1];
+  last = { temperature: { v: L("temperature") }, humidity: { v: L("humidity") }, pressure: { v: L("pressure") }, "wind-speed": { v: L("wind-speed") },
+           "wind-gust": { v: L("wind-speed") * 1.6 }, "wind-dir": { v: 292 }, "rain-today": { v: 0 }, "uv-index": { v: 3.4 }, lux: { v: 24000 } };
+  Object.values(last).forEach(x => x.t = new Date()); lastTime = new Date();
+}
+
+load(); setInterval(load, 60000); setInterval(() => lastTime && render(), 30000);
+</script>
+</body>
+</html>
